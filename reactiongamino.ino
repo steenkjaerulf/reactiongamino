@@ -1,19 +1,22 @@
 #include <stdint.h>
 #include <LiquidCrystal.h>
 #include <YetAnotherPcInt.h>
+#include <EEPROM.h>
 
-#define BUZZER         6
+#define HIGH_SCORE_ADDR 0
 
-#define LED_RED       A0
-#define LED_BLUE      A1
-#define LED_GREEN     A2
-#define LED_YELLOW    A3
+#define BUZZER          6
 
-#define BUTTON_GREEN   2
-#define BUTTON_BLUE    3
-#define BUTTON_RED     4
-#define BUTTON_YELLOW  5
-#define BUTTON_ENTER   7
+#define LED_RED        A0
+#define LED_BLUE       A1
+#define LED_GREEN      A2
+#define LED_YELLOW     A3
+
+#define BUTTON_GREEN    2
+#define BUTTON_BLUE     3
+#define BUTTON_RED      4
+#define BUTTON_YELLOW   5
+#define BUTTON_ENTER    7
 
 #define AMOUNT_OF_BUTTONS_AND_LEDS 4
 
@@ -22,6 +25,7 @@
 #define MAX_AMOUNT_OF_STEPS_IN_SEQUENCE 200
 
 #define START_DELAY 1000
+
 typedef struct
 {
   uint8_t button;
@@ -56,16 +60,16 @@ typedef struct
   uint16_t sequence_index;
   uint16_t numbers_in_sequence;
   bool first_run;
-  uint16_t successful_hits;
+  uint8_t successful_hits;
+  uint8_t high_score;
   uint16_t timeout;
   uint16_t time_counter;
   uint32_t reaction_time;
+  uint16_t loop_delay;
 } Game_InstanceData;
 
 static Game_InstanceData instance_data;
 static LiquidCrystal lcd(13, 12, 11, 10, 9 , 8 );
-static uint16_t high_score = 0;
-static uint16_t loop_delay = START_DELAY;
 
 typedef void (*Game_StateHdlFunc)(Game_InstanceData *inst_data);
 
@@ -179,7 +183,7 @@ static void Game_SuccessfullyPressedButtonStateHandler(Game_InstanceData *inst_d
       {
         inst_data->timeout = 5;
       }
-      delay(loop_delay);
+      delay(inst_data->loop_delay);
       inst_data->current_state = Game_CheckIfDoneState;
     }
     else
@@ -251,9 +255,12 @@ static void Game_DoneStateHandler(Game_InstanceData *inst_data)
     lcd.home();
     lcd.clear();
 
-    if(inst_data->successful_hits > high_score)
+    if(inst_data->successful_hits > inst_data->high_score)
     {
-      high_score = inst_data->successful_hits;
+      inst_data->high_score = inst_data->successful_hits;
+
+      EEPROM.write(HIGH_SCORE_ADDR, inst_data->high_score);
+      
       lcd.home();
       lcd.clear();
 
@@ -272,7 +279,7 @@ static void Game_DoneStateHandler(Game_InstanceData *inst_data)
     lcd.clear();
     lcd.print(score_buffer);
     lcd.setCursor(0, 1);
-    sprintf(highscore_buffer, "High score: %d", high_score);
+    sprintf(highscore_buffer, "High score: %d", inst_data->high_score);
     lcd.print(highscore_buffer);
     lcd.setCursor(0, 0);
     
@@ -300,11 +307,13 @@ static void Game_DoneStateHandler(Game_InstanceData *inst_data)
 static void Game_WaitForStartPressStateHandler(Game_InstanceData *inst_data)
 {
   static bool once = false;
-  loop_delay = START_DELAY;
   
   if(inst_data != NULL)
   {
-    int button_value = digitalRead(BUTTON_ENTER);
+    int button_value = 0;
+    inst_data->loop_delay = START_DELAY;
+    
+    button_value = digitalRead(BUTTON_ENTER);
 
     if(button_value == LOW)
     {
@@ -323,7 +332,7 @@ static void Game_WaitForStartPressStateHandler(Game_InstanceData *inst_data)
   }
 }
 
-static  const Game_StateHdlFunc Game_StateHandlers[Game_LastState] = {
+static const Game_StateHdlFunc Game_StateHandlers[Game_LastState] = {
   Game_GenerateGameSequenceStateHandler,
   Game_IndicateButtonStateHandler,
   Game_AwaitButtonPressStateHandler,
@@ -401,20 +410,22 @@ void setup() {
   instance_data.first_run = true;
   instance_data.sequence_index = 0;
   instance_data.timeout = 800;
+  instance_data.loop_delay = START_DELAY;
+  
+  instance_data.high_score = EEPROM.read(HIGH_SCORE_ADDR);
+  if(instance_data.high_score == 0xFF)
+  {
+    instance_data.high_score = 0;
+  }
+  
   memset(&instance_data.game_sequence, 0x00, MAX_AMOUNT_OF_STEPS_IN_SEQUENCE);
 }
 
 void loop() {
-#if 0
-  digitalWrite(LED_RED,    HIGH);
-  digitalWrite(LED_BLUE,   HIGH);
-  digitalWrite(LED_GREEN,  HIGH);
-  digitalWrite(LED_YELLOW, HIGH);
-#else
-  Game_Task(loop_delay);
-  if(loop_delay >= 5)
+  Game_Task(instance_data.loop_delay);
+  
+  if(instance_data.loop_delay >= 5)
   {
-    loop_delay -= 5;
+    instance_data.loop_delay -= 5;
   }
-#endif
 }
