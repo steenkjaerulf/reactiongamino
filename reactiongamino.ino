@@ -260,7 +260,7 @@ static void Game_QuickTimeEventEnterHandler(Game_InstanceData *inst_data)
     lcd.setCursor(0, 0);
     
     while(wait_loop > 0) {
-      delay(8);
+      delay(9);
       button_value = digitalRead(BUTTON_ENTER);
       wait_loop--;
       if(button_value == LOW) 
@@ -294,17 +294,21 @@ static void Game_GameOverStateHandler(Game_InstanceData *inst_data)
     lcd.clear();
     lcd.print("   Game over!");
 
-    int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
-
-    // note durations: 4 = quarter note, 8 = eighth note, etc.:
-    int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
-
-    for (int thisNote = 0; thisNote < 8; thisNote++) {
-      int noteDuration = 1000 / noteDurations[thisNote];
-      tone(BUZZER, melody[thisNote], noteDuration);
-      int pauseBetweenNotes = noteDuration * 1.30;
-      delay(pauseBetweenNotes);
-      noTone(12);
+    //hardware weirdness workaround where game sometimes starts it self. Only play audio if atleast one hit
+    if (inst_data->successful_hits > 0) 
+    {
+      int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
+  
+      // note durations: 4 = quarter note, 8 = eighth note, etc.:
+      int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
+  
+      for (int thisNote = 0; thisNote < 8; thisNote++) {
+        int noteDuration = 1000 / noteDurations[thisNote];
+        tone(BUZZER, melody[thisNote], noteDuration);
+        int pauseBetweenNotes = noteDuration * 1.30;
+        delay(pauseBetweenNotes);
+        noTone(12);
+      }
     }
 
     delay(1000);
