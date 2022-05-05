@@ -149,6 +149,7 @@ static void Game_AwaitButtonPressStateHandler(Game_InstanceData *inst_data)
     if (inst_data->has_pressed_button)
     {
       inst_data->current_state = Game_SuccessfullyPressedButtonState;
+      delay(50); //small delay before resetting to remove button jitter
       inst_data->has_pressed_button = false;
     }
     else
@@ -183,28 +184,29 @@ static void Game_SuccessfullyPressedButtonStateHandler(Game_InstanceData *inst_d
         lcd.print("Barely made it");
       }
 
-      inst_data->reaction_time += inst_data->time_counter;
+      inst_data->reaction_time += inst_data->time_counter + 250; //250 is LED on delay
       ++inst_data->successful_hits;
 
 
-      if (instance_data.loop_delay >= 25)
+      if (instance_data.loop_delay >= 5)
       {
-        instance_data.loop_delay -= 25;
+        instance_data.loop_delay -= (instance_data.loop_delay / 20);
       }
-      if (inst_data->timeout >= 25)
+      if (inst_data->timeout >= 100)
       {
         inst_data->timeout -= 5;
       }
       else
       {
-        inst_data->timeout = 5;
+        inst_data->timeout = 25;
       }
       delay(inst_data->loop_delay);
-      if(random(0, 10) == 0) {
+      if (random(0, 10) == 0)
+      {
         inst_data->enter_quicktime_countdown = 8;
         inst_data->current_state = Game_QuickTimeEventEnterState;
       }
-      else 
+      else
       {
         inst_data->current_state = Game_CheckIfDoneState;
       }
@@ -224,11 +226,24 @@ static void Game_QuickTimeEventEnterHandler(Game_InstanceData *inst_data)
   {
     int button_value = 0;
     int wait_loop = 10;
+    
+    //anti cheat!, if enter is held down we fail the player
+    button_value = digitalRead(BUTTON_ENTER);
+    if (button_value == LOW)
+    {
+      lcd.home();
+      lcd.clear();
+      lcd.print(" No cheating!?");
+      delay(2000);
+      inst_data->current_state = Game_GameOverState;
+      return;
+    }
+    
     lcd.home();
     lcd.clear();
     lcd.print("  Smash ENTER!");
     lcd.setCursor(0, 1);
-    switch(inst_data->enter_quicktime_countdown) {
+    switch (inst_data->enter_quicktime_countdown) {
       case 8:
         lcd.print("****************");
         break;
@@ -258,18 +273,18 @@ static void Game_QuickTimeEventEnterHandler(Game_InstanceData *inst_data)
         break;
     }
     lcd.setCursor(0, 0);
-    
-    while(wait_loop > 0) {
+
+    while (wait_loop > 0) {
       delay(9);
       button_value = digitalRead(BUTTON_ENTER);
       wait_loop--;
-      if(button_value == LOW) 
+      if (button_value == LOW)
       {
         break;
       }
     }
-    
-    if(button_value == LOW)
+
+    if (button_value == LOW)
     {
       inst_data->current_state = Game_CheckIfDoneState;
       inst_data->quicktime_score += inst_data->enter_quicktime_countdown;
@@ -278,7 +293,7 @@ static void Game_QuickTimeEventEnterHandler(Game_InstanceData *inst_data)
       lcd.print("    Awesome!");
       delay(500);
     }
-    else if(inst_data->enter_quicktime_countdown == 0)
+    else if (inst_data->enter_quicktime_countdown == 0)
     {
       inst_data->current_state = Game_GameOverState;
     }
@@ -295,13 +310,13 @@ static void Game_GameOverStateHandler(Game_InstanceData *inst_data)
     lcd.print("   Game over!");
 
     //hardware weirdness workaround where game sometimes starts it self. Only play audio if atleast one hit
-    if (inst_data->successful_hits > 0) 
+    if (inst_data->successful_hits > 0)
     {
       int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
-  
+
       // note durations: 4 = quarter note, 8 = eighth note, etc.:
       int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
-  
+
       for (int thisNote = 0; thisNote < 8; thisNote++) {
         int noteDuration = 1000 / noteDurations[thisNote];
         tone(BUZZER, melody[thisNote], noteDuration);
@@ -451,6 +466,31 @@ static void Game_WaitForStartPressStateHandler(Game_InstanceData *inst_data)
       }
       inst_data->has_pressed_button = false;
     }
+    //keep mashing red button for 5 seconds == reset highscore
+    else if (inst_data->button_number_pressed == BUTTON_RED && inst_data->has_pressed_button == true)
+    {
+      uint16_t loops = 0;
+      while (inst_data->has_pressed_button == true && inst_data->button_number_pressed == BUTTON_RED)
+      {
+        inst_data->has_pressed_button = false;
+        delay(1000);
+        if (loops > 5)
+        {
+          inst_data->high_score = 0;
+          EEPROM.write(HIGH_SCORE_ADDR, 0);
+          lcd.clear();
+          lcd.home();
+          lcd.print("  Smash ENTER!");
+          lcd.setCursor(0, 1);
+          lcd.print("Highscore reset");
+          lcd.setCursor(0, 0);
+          delay(1000);
+          once = false;
+          break;
+        }
+        loops++;
+      }
+    }
   }
 }
 
@@ -522,7 +562,7 @@ void setup() {
 
   memset(&instance_data, 0x00, sizeof(instance_data));
 
-  //Serial.begin(9600);
+  //Serial.begin(115200);
   lcd.begin(16, 2);
   lcd.clear();
 
