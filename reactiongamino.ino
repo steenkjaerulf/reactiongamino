@@ -3,6 +3,8 @@
 #include <YetAnotherPcInt.h>
 #include <EEPROM.h>
 
+//#define SERIAL_DEBUG
+
 #define HIGH_SCORE_ADDR 0
 
 #define BUZZER          6
@@ -309,21 +311,17 @@ static void Game_GameOverStateHandler(Game_InstanceData *inst_data)
     lcd.clear();
     lcd.print("   Game over!");
 
-    //hardware weirdness workaround where game sometimes starts it self. Only play audio if atleast one hit
-    if (inst_data->successful_hits > 0)
-    {
-      int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
+    int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
 
-      // note durations: 4 = quarter note, 8 = eighth note, etc.:
-      int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
+    // note durations: 4 = quarter note, 8 = eighth note, etc.:
+    int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
 
-      for (int thisNote = 0; thisNote < 8; thisNote++) {
-        int noteDuration = 1000 / noteDurations[thisNote];
-        tone(BUZZER, melody[thisNote], noteDuration);
-        int pauseBetweenNotes = noteDuration * 1.30;
-        delay(pauseBetweenNotes);
-        noTone(12);
-      }
+    for (int thisNote = 0; thisNote < 8; thisNote++) {
+      int noteDuration = 1000 / noteDurations[thisNote];
+      tone(BUZZER, melody[thisNote], noteDuration);
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+      noTone(12);
     }
 
     delay(1000);
@@ -519,24 +517,36 @@ void button_red_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_RED;
   instance_data.has_pressed_button = true;
+#ifdef SERIAL_DEBUG
+  Serial.println("red");
+#endif
 }
 
 void button_blue_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_BLUE;
   instance_data.has_pressed_button = true;
+#ifdef SERIAL_DEBUG  
+  Serial.println("blue");
+#endif
 }
 
 void button_green_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_GREEN;
   instance_data.has_pressed_button = true;
+#ifdef SERIAL_DEBUG
+  Serial.println("green");
+#endif
 }
 
 void button_yellow_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_YELLOW;
   instance_data.has_pressed_button = true;
+#ifdef SERIAL_DEBUG
+  Serial.println("yellow");
+#endif
 }
 
 void setup() {
@@ -562,7 +572,9 @@ void setup() {
 
   memset(&instance_data, 0x00, sizeof(instance_data));
 
-  //Serial.begin(115200);
+#ifdef SERIAL_DEBUG
+  Serial.begin(115200);
+#endif
   lcd.begin(16, 2);
   lcd.clear();
 
