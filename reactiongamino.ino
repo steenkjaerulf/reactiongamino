@@ -107,8 +107,9 @@ static void Game_GenerateGameSequenceStateHandler(Game_InstanceData *inst_data)
 
     inst_data->successful_hits = 0;
     inst_data->quicktime_score = 0;
-    inst_data->reaction_time = 0;
-    inst_data->current_state = Game_IndicateButtonState;
+    inst_data->reaction_time   = 0;
+    inst_data->sequence_index  = 0;
+    inst_data->current_state   = Game_IndicateButtonState;
   }
 }
 
@@ -151,7 +152,6 @@ static void Game_AwaitButtonPressStateHandler(Game_InstanceData *inst_data)
     if (inst_data->has_pressed_button)
     {
       inst_data->current_state = Game_SuccessfullyPressedButtonState;
-      delay(50); //small delay before resetting to remove button jitter
       inst_data->has_pressed_button = false;
     }
     else
@@ -217,6 +217,7 @@ static void Game_SuccessfullyPressedButtonStateHandler(Game_InstanceData *inst_d
     {
       /* Hit wrong button - game over! */
       inst_data->current_state = Game_GameOverState;
+      Serial.println("Wrong button pressed");
     }
   }
 }
@@ -338,7 +339,7 @@ static void Game_CheckIfDoneStateHandler(Game_InstanceData *inst_data)
     {
       /* We're done with this sequence */
       inst_data->current_state = Game_DoneState;
-      instance_data.sequence_index = 0;
+      inst_data->sequence_index = 0;
     }
     else
     {
@@ -347,8 +348,8 @@ static void Game_CheckIfDoneStateHandler(Game_InstanceData *inst_data)
       ++inst_data->sequence_index;
     }
 
-    instance_data.should_press_button = false;
-    instance_data.has_pressed_button = false;
+    inst_data->should_press_button = false;
+    inst_data->has_pressed_button = false;
   }
 }
 
@@ -517,6 +518,7 @@ void button_red_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_RED;
   instance_data.has_pressed_button = true;
+
 #ifdef SERIAL_DEBUG
   Serial.println("red");
 #endif
@@ -526,6 +528,7 @@ void button_blue_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_BLUE;
   instance_data.has_pressed_button = true;
+
 #ifdef SERIAL_DEBUG  
   Serial.println("blue");
 #endif
@@ -535,6 +538,7 @@ void button_green_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_GREEN;
   instance_data.has_pressed_button = true;
+  
 #ifdef SERIAL_DEBUG
   Serial.println("green");
 #endif
@@ -544,6 +548,7 @@ void button_yellow_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_YELLOW;
   instance_data.has_pressed_button = true;
+
 #ifdef SERIAL_DEBUG
   Serial.println("yellow");
 #endif
@@ -575,6 +580,7 @@ void setup() {
 #ifdef SERIAL_DEBUG
   Serial.begin(115200);
 #endif
+
   lcd.begin(16, 2);
   lcd.clear();
 
@@ -597,5 +603,12 @@ void setup() {
 }
 
 void loop() {
+#if 0
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_YELLOW, HIGH);
+#else
   Game_Task(instance_data.loop_delay);
+#endif
 }
