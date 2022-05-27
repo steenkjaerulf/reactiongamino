@@ -218,7 +218,9 @@ static void Game_SuccessfullyPressedButtonStateHandler(Game_InstanceData *inst_d
     {
       /* Hit wrong button - game over! */
       inst_data->current_state = Game_GameOverState;
+#ifdef SERIAL_DEBUG
       Serial.println("Wrong button pressed");
+#endif
     }
   }
 }
