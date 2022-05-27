@@ -3,6 +3,8 @@
 #include <YetAnotherPcInt.h>
 #include <EEPROM.h>
 
+//#define SERIAL_DEBUG
+
 #define HIGH_SCORE_ADDR 0
 
 #define BUZZER          6
@@ -22,7 +24,7 @@
 
 #define MAX_SEQUENCE_LENGTH 12
 #define MIN_SEQUENCE_LENGTH 4
-#define MAX_AMOUNT_OF_STEPS_IN_SEQUENCE 200
+#define MAX_AMOUNT_OF_STEPS_IN_SEQUENCE 250
 
 #define START_DELAY 1000
 
@@ -103,10 +105,12 @@ static void Game_GenerateGameSequenceStateHandler(Game_InstanceData *inst_data)
     lcd.print("      Go!");
     delay(1000);
 
-    inst_data->successful_hits = 0;
-    inst_data->quicktime_score = 0;
-    inst_data->reaction_time = 0;
-    inst_data->current_state = Game_IndicateButtonState;
+    inst_data->successful_hits    = 0;
+    inst_data->quicktime_score    = 0;
+    inst_data->reaction_time      = 0;
+    inst_data->sequence_index     = 0;
+    inst_data->has_pressed_button = false;
+    inst_data->current_state   = Game_IndicateButtonState;
   }
 }
 
@@ -149,7 +153,6 @@ static void Game_AwaitButtonPressStateHandler(Game_InstanceData *inst_data)
     if (inst_data->has_pressed_button)
     {
       inst_data->current_state = Game_SuccessfullyPressedButtonState;
-      delay(50); //small delay before resetting to remove button jitter
       inst_data->has_pressed_button = false;
     }
     else
@@ -215,6 +218,9 @@ static void Game_SuccessfullyPressedButtonStateHandler(Game_InstanceData *inst_d
     {
       /* Hit wrong button - game over! */
       inst_data->current_state = Game_GameOverState;
+#ifdef SERIAL_DEBUG
+      Serial.println("Wrong button pressed");
+#endif
     }
   }
 }
@@ -309,21 +315,17 @@ static void Game_GameOverStateHandler(Game_InstanceData *inst_data)
     lcd.clear();
     lcd.print("   Game over!");
 
-    //hardware weirdness workaround where game sometimes starts it self. Only play audio if atleast one hit
-    if (inst_data->successful_hits > 0)
-    {
-      int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
+    int melody[] = { 262, 196, 196, 220, 196, 0, 247, 262 };
 
-      // note durations: 4 = quarter note, 8 = eighth note, etc.:
-      int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
+    // note durations: 4 = quarter note, 8 = eighth note, etc.:
+    int noteDurations[] = { 4, 8, 8, 4, 4, 4, 4, 4 };
 
-      for (int thisNote = 0; thisNote < 8; thisNote++) {
-        int noteDuration = 1000 / noteDurations[thisNote];
-        tone(BUZZER, melody[thisNote], noteDuration);
-        int pauseBetweenNotes = noteDuration * 1.30;
-        delay(pauseBetweenNotes);
-        noTone(12);
-      }
+    for (int thisNote = 0; thisNote < 8; thisNote++) {
+      int noteDuration = 1000 / noteDurations[thisNote];
+      tone(BUZZER, melody[thisNote], noteDuration);
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+      noTone(12);
     }
 
     delay(1000);
@@ -340,7 +342,7 @@ static void Game_CheckIfDoneStateHandler(Game_InstanceData *inst_data)
     {
       /* We're done with this sequence */
       inst_data->current_state = Game_DoneState;
-      instance_data.sequence_index = 0;
+      inst_data->sequence_index = 0;
     }
     else
     {
@@ -349,8 +351,8 @@ static void Game_CheckIfDoneStateHandler(Game_InstanceData *inst_data)
       ++inst_data->sequence_index;
     }
 
-    instance_data.should_press_button = false;
-    instance_data.has_pressed_button = false;
+    inst_data->should_press_button = false;
+    inst_data->has_pressed_button = false;
   }
 }
 
@@ -440,8 +442,8 @@ static void Game_WaitForStartPressStateHandler(Game_InstanceData *inst_data)
       lcd.home();
       lcd.print("  Smash ENTER!");
     }
-    else if (inst_data->button_number_pressed == BUTTON_GREEN && inst_data->has_pressed_button == true) {
-
+    else if (inst_data->button_number_pressed == BUTTON_GREEN && inst_data->has_pressed_button == true)
+    {
       once = false;
       if (sound_enabled) {
         sound_enabled = false;
@@ -519,24 +521,40 @@ void button_red_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_RED;
   instance_data.has_pressed_button = true;
+
+#ifdef SERIAL_DEBUG
+  Serial.println("red");
+#endif
 }
 
 void button_blue_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_BLUE;
   instance_data.has_pressed_button = true;
+
+#ifdef SERIAL_DEBUG  
+  Serial.println("blue");
+#endif
 }
 
 void button_green_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_GREEN;
   instance_data.has_pressed_button = true;
+  
+#ifdef SERIAL_DEBUG
+  Serial.println("green");
+#endif
 }
 
 void button_yellow_interrupt_handler()
 {
   instance_data.button_number_pressed = BUTTON_YELLOW;
   instance_data.has_pressed_button = true;
+
+#ifdef SERIAL_DEBUG
+  Serial.println("yellow");
+#endif
 }
 
 void setup() {
@@ -562,7 +580,10 @@ void setup() {
 
   memset(&instance_data, 0x00, sizeof(instance_data));
 
-  //Serial.begin(115200);
+#ifdef SERIAL_DEBUG
+  Serial.begin(115200);
+#endif
+
   lcd.begin(16, 2);
   lcd.clear();
 
@@ -585,5 +606,12 @@ void setup() {
 }
 
 void loop() {
+#if 0
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_YELLOW, HIGH);
+#else
   Game_Task(instance_data.loop_delay);
+#endif
 }
