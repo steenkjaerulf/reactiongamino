@@ -24,7 +24,7 @@
 
 #define MAX_SEQUENCE_LENGTH 12
 #define MIN_SEQUENCE_LENGTH 4
-#define MAX_AMOUNT_OF_STEPS_IN_SEQUENCE 200
+#define MAX_AMOUNT_OF_STEPS_IN_SEQUENCE 250
 
 #define START_DELAY 1000
 
@@ -105,10 +105,11 @@ static void Game_GenerateGameSequenceStateHandler(Game_InstanceData *inst_data)
     lcd.print("      Go!");
     delay(1000);
 
-    inst_data->successful_hits = 0;
-    inst_data->quicktime_score = 0;
-    inst_data->reaction_time   = 0;
-    inst_data->sequence_index  = 0;
+    inst_data->successful_hits    = 0;
+    inst_data->quicktime_score    = 0;
+    inst_data->reaction_time      = 0;
+    inst_data->sequence_index     = 0;
+    inst_data->has_pressed_button = false;
     inst_data->current_state   = Game_IndicateButtonState;
   }
 }
@@ -439,8 +440,8 @@ static void Game_WaitForStartPressStateHandler(Game_InstanceData *inst_data)
       lcd.home();
       lcd.print("  Smash ENTER!");
     }
-    else if (inst_data->button_number_pressed == BUTTON_GREEN && inst_data->has_pressed_button == true) {
-
+    else if (inst_data->button_number_pressed == BUTTON_GREEN && inst_data->has_pressed_button == true)
+    {
       once = false;
       if (sound_enabled) {
         sound_enabled = false;
